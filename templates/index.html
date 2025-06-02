@@ -1,0 +1,137 @@
+<!DOCTYPE html>
+<html lang="ko">
+<head>
+  <meta charset="UTF-8" />
+  <title>Acne-Classifier</title>
+  <style>
+    body { font-family: sans-serif; text-align: center; margin-top: 30px; }
+    #image { max-width: 300px; max-height: 300px; margin-top: 20px; }
+    #result { margin-top: 20px; }
+    .predicted-labels { font-size: 1.5em; font-weight: bold; color: #333; }
+    .probs { font-size: 0.8em; color: #666; margin-top: 5px; white-space: pre-line; }
+    #classify-btn, #crop-btn { margin-top: 10px; padding: 6px 12px; font-size: 16px; cursor: pointer; }
+  </style>
+
+  <!-- Cropper.js CDN -->
+  <link href="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.css" rel="stylesheet">
+  <script src="https://cdnjs.cloudflare.com/ajax/libs/cropperjs/1.5.13/cropper.min.js"></script>
+</head>
+
+<body>
+  <h1>
+    Acne Classifier<br />
+    <span style="font-size: 0.6em; display: block;">
+      Model: Swin Transformer
+    </span>
+  </h1>
+
+  <input type="file" id="inputImage" accept="image/*" />
+  <div>
+    <img id="image" />
+  </div>
+
+  <button id="crop-btn">Crop</button>
+  <button id="classify-btn" disabled>Classify</button>
+
+  <div id="result"></div>
+
+  <script>
+    const inputImage = document.getElementById('inputImage');
+    const image = document.getElementById('image');
+    const cropBtn = document.getElementById('crop-btn');
+    const classifyBtn = document.getElementById('classify-btn');
+    const resultDiv = document.getElementById('result');
+    const THRESHOLD = 0.5;
+
+    let selectedFile = null;
+    let cropper = null;
+    let croppedBlob = null;
+
+    inputImage.addEventListener('change', () => {
+      const file = inputImage.files[0];
+      if (!file) return;
+    
+      const allowedTypes = ['image/png', 'image/jpeg', 'image/webp'];
+      if (!allowedTypes.includes(file.type)) {
+        alert('지원하지 않는 이미지 형식입니다. PNG, JPG, JPEG, WEBP 파일만 업로드하세요.');
+        inputImage.value = ''; // 파일 선택 초기화
+        return;
+      }
+    
+      selectedFile = file;
+    
+      const url = URL.createObjectURL(file);
+      image.src = url;
+      classifyBtn.disabled = true; // 새 이미지 선택 시 비활성화
+    
+      image.onload = () => {
+        const isSquare = image.naturalWidth === image.naturalHeight;
+        if (!isSquare) {
+          alert("이미지가 정사각형이 아닙니다. 반드시 Crop 버튼을 눌러 영역을 지정해주세요.");
+        }
+    
+        if (cropper) cropper.destroy();
+        cropper = new Cropper(image, {
+          aspectRatio: 1,
+          viewMode: 1
+        });
+      };
+    });
+
+    cropBtn.addEventListener('click', () => {
+      if (!cropper) return alert("이미지를 먼저 업로드하세요.");
+
+      cropper.getCroppedCanvas().toBlob((blob) => {
+        croppedBlob = blob;
+
+        image.src = URL.createObjectURL(croppedBlob);
+
+        cropper.destroy();
+        cropper = null;
+
+        classifyBtn.disabled = false; // 크롭 후 활성화
+      });
+    });
+
+    classifyBtn.addEventListener('click', async () => {
+      if (!croppedBlob && !selectedFile) {
+        alert('Please upload and crop an image first.');
+        return;
+      }
+
+      const formData = new FormData();
+      formData.append('file', croppedBlob || selectedFile);
+
+      try {
+        const res = await fetch('/predict', {
+          method: 'POST',
+          body: formData
+        });
+        const data = await res.json();
+
+        if (data.probs) {
+          const labels = Object.keys(data.probs);
+          const probs = Object.values(data.probs);
+
+          const predictedLabels = labels.filter((_, i) => probs[i] / 100 >= THRESHOLD);
+          const predictedText = predictedLabels.length ? predictedLabels.join(', ') : 'No matching labels';
+
+          const probsText = labels
+            .map((label, i) => `${label}: ${probs[i]}%`)
+            .join('\n');
+
+          resultDiv.innerHTML = `
+            <div class="predicted-labels">Answer: ${predictedText}</div>
+            <div class="probs">${probsText}</div>
+          `;
+        } else {
+          resultDiv.textContent = `Error: ${data.error}`;
+        }
+      } catch (error) {
+        resultDiv.textContent = `A server error occurred.\n${error.message || error}`;
+        console.error(error);
+      }
+    });
+  </script>
+</body>
+</html>
