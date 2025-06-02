@@ -1,5 +1,6 @@
 from flask import Flask, request, jsonify, render_template
 from huggingface_hub import hf_hub_download
+from huggingface_hub.utils import EntryNotFoundError
 from PIL import Image
 import torch
 import torch.nn as nn
@@ -24,10 +25,15 @@ class SwinClassifier(nn.Module):
 device = torch.device("cuda" if torch.cuda.is_available() else "cpu")
 print(device)
 
-model_path = hf_hub_download(
-    repo_id="your-username/your-model-repo",
-    filename="best_Acne_swin_model.pth",
-    token=os.environ["HF_TOKEN"])
+try:
+    model_path = hf_hub_download(
+        repo_id="your-username/your-model-repo",
+        filename="model.pth",
+        token=os.environ["HF_TOKEN"],
+        local_files_only=True
+    )
+except EntryNotFoundError:
+    print("Model not cached yet.")
 
 # Load the Model
 model = SwinClassifier(num_classes=10).to(device)
@@ -67,7 +73,7 @@ def predict():
         class_probs = {class_names[i]: round(float(probs[i]) * 100, 2) for i in range(len(class_names))}
         return jsonify({'probs': class_probs})
     except Exception as e:
-        print("Error:", str(e))  # 터미널 출력
+        print("Error:", str(e))
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 if __name__ == '__main__':
