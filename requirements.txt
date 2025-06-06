@@ -4,3 +4,4 @@ torchvision
 pillow
 timm
 huggingface_hub
+cloudinary
