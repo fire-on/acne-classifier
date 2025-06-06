@@ -43,10 +43,16 @@ try:
         repo_id="whii/Swin-Transformer-Pretrained_multilabel-acne",
         filename="99best_acne_swin.pth",
         token=os.environ["HF_TOKEN"],
-        local_files_only=True
+        local_files_only=True  # True면 캐시 없으면 실패함
     )
 except EntryNotFoundError:
-    print("Model not cached yet.")
+    print("Model not cached yet. Trying to download...")
+    model_path = hf_hub_download(
+        repo_id="whii/Swin-Transformer-Pretrained_multilabel-acne",
+        filename="99best_acne_swin.pth",
+        token=os.environ["HF_TOKEN"],
+        local_files_only=False  # 새로 다운로드 허용
+    )
 
 # 모델 로드
 model = SwinClassifier(num_classes=10).to(device)
