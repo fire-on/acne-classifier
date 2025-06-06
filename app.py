@@ -28,7 +28,7 @@ print(device)
 try:
     model_path = hf_hub_download(
         repo_id="whii/Swin-Transformer-Pretrained_multilabel-acne",
-        filename="model.pth",
+        filename="99best_acne_swin.pth",
         token=os.environ["HF_TOKEN"],
         local_files_only=True
     )
