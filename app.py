@@ -79,7 +79,23 @@ def predict():
         class_probs = {class_names[i]: round(float(probs[i]) * 100, 2) for i in range(len(class_names))}
 
         # 조건 만족 시 Cloudinary 업로드
-        max_prob = max(probs)
+        max_prob = max(probs).item()
+        return jsonify({'probs': class_probs}, 'max_prob': round(max_prob, 4))
+
+    except Exception as e:
+        print("Error:", str(e))
+        return jsonify({'error': f'Server error: {str(e)}'}), 500
+
+@app.route('/consent', methods=['POST'])
+def consent():
+    try:
+        if 'file' not in request.files:
+            return jsonify({'success': True})
+
+        file = request.files['file']
+        image = Image.open(io.BytesIO(file.read())).convert('RGB')
+
+        max_prob = float(request.form.get('max_prob', 0))  # 클라이언트에서 전달받은 값
         now = datetime.utcnow()
         deadline = datetime(2025, 7, 8)
 
@@ -92,9 +108,15 @@ def predict():
                 img_hash = hashlib.sha256(file.read()).hexdigest()
                 file.seek(0)
 
-                resized = image.resize((1024, 1024))
+                width, height = image.size
                 buffer = io.BytesIO()
-                resized.save(buffer, format='JPEG', quality=85)
+
+                if width > 1024 or height > 1024:
+                    resized = image.resize((1024, 1024))
+                    resized.save(buffer, format='JPEG', quality=85)
+                else:
+                    image.save(buffer, format='JPEG', quality=85)
+
                 buffer.seek(0)
 
                 if buffer.getbuffer().nbytes <= 5 * 1024 * 1024:
@@ -105,11 +127,11 @@ def predict():
                         unique_filename=False
                     )
 
-        return jsonify({'probs': class_probs})
+        return jsonify({'success': True})
 
     except Exception as e:
-        print("Error:", str(e))
-        return jsonify({'error': f'Server error: {str(e)}'}), 500
+        print(f"[Consent Error] {e}")
+        return jsonify({'success': True})  # 에러가 나도 사용자에겐 무조건 성공 처리
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
