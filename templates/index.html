@@ -7,6 +7,10 @@
     body { font-family: sans-serif; text-align: center; margin-top: 30px; }
     #image { max-width: 300px; max-height: 300px; margin-top: 20px; }
     #result { margin-top: 20px; }
+    #logo {
+        width: 120px;  /* 또는 80px, 150px 등 원하는 크기로 */
+        height: auto;  /* 비율 유지하면서 축소됨 */
+        margin-bottom: 10px; }
     .predicted-labels { font-size: 1.5em; font-weight: bold; color: #333; }
     .probs { font-size: 0.8em; color: #666; margin-top: 5px; white-space: pre-line; }
     #classify-btn, #crop-btn { margin-top: 10px; padding: 6px 12px; font-size: 16px; cursor: pointer; }
@@ -18,6 +22,9 @@
 </head>
 
 <body>
+  <div id="logo-container">
+    <img src="static/swinlogo.png" alt="로고" id="logo" />
+  </div>
   <h1>
     Acne Classifier<br />
     <span style="font-size: 0.6em; display: block;">
@@ -42,6 +49,18 @@
     const classifyBtn = document.getElementById('classify-btn');
     const resultDiv = document.getElementById('result');
     const THRESHOLD = 0.5;
+    const labelDescriptions = {
+      "Pimples": "Pimples(면포성 여드름): 여드름의 전형적인 형태로 화이트헤드로 불리기도 합니다.",
+      "blackhead": "Blackhead(블랙헤드): 모공이 열려 피지와 노폐물이 산화되어 검게 보이는 여드름입니다.",
+      "conglobata": "Conglobata(응괴성 여드름): 여드름의 가장 심한 형태로 전문가의 상담과 장기적인 치료가 필요합니다.",
+      "crystanlline": "Crystanlline(결정성 여드름): 딱딱하게 만져지는 형태로 초기 단계에 치료하지 않거나 잘못 치료하여 발생합니다.",
+      "cystic": "Cystic(낭종성 여드름): 고름이 찬것처럼 느껴지고 여러 개의 낭종들이 뭉쳐 크기가 더 커지기도 합니다.",
+      "folliculitis": "Folliculitis(모낭염): 화장품, 피부 마찰 등 외적 요인으로 손상을 받거나, 피부 면역이 약해져 생깁니다.",
+      "keloid": "Keloid(켈로이드): 화농되는 모낭 염증과 모낭 주위염은 치유 후에도 켈로이드를 형성합니다.",
+      "milium": "Milium(비립종): 피부 표면에 작고 하얀 알갱이 형태로 나타나며 작은 각질 주머니가 있습니다.",
+      "papular": "Papular(구진성 여드름): 면포, 붉은 구진, 고름이 든 농포가 많이 형성되어 있습니다.",
+      "purulent": "Purulent(화농성 여드름): 여드름이 화농하여 피부 깊숙이 농포를 만들고 있는 단계입니다."
+    };
 
     let selectedFile = null;
     let cropper = null;
@@ -66,15 +85,20 @@
     
       image.onload = () => {
         const isSquare = image.naturalWidth === image.naturalHeight;
-        if (!isSquare) {
-          alert("이미지가 정사각형이 아닙니다. 반드시 Crop 버튼을 눌러 영역을 지정해주세요.");
-        }
-    
+      
         if (cropper) cropper.destroy();
-        cropper = new Cropper(image, {
-          aspectRatio: 1,
-          viewMode: 1
-        });
+      
+        if (isSquare) {
+          classifyBtn.disabled = false; // 바로 분류 가능
+          cropper = null;
+        } else {
+          alert("이미지가 정사각형이 아닙니다. 반드시 Crop 버튼을 눌러 영역을 지정해주세요.");
+          cropper = new Cropper(image, {
+            aspectRatio: 1,
+            viewMode: 1
+          });
+          classifyBtn.disabled = true;
+        }
       };
     });
 
@@ -119,11 +143,36 @@
           const probsText = labels
             .map((label, i) => `${label}: ${probs[i]}%`)
             .join('\n');
+          const descriptionsText = predictedLabels
+            .map(label => labelDescriptions[label] || `${label}: 설명 없음.`)
+            .join('\n\n');
 
           resultDiv.innerHTML = `
             <div class="predicted-labels">Answer: ${predictedText}</div>
             <div class="probs">${probsText}</div>
+            ${explanationHTML}
+            <div style="margin-top:10px;">
+              분류된 이미지를 DB에 저장하길 동의하십니까?<br/>
+              <button id="consent-btn">동의합니다</button>
+            </div>
           `;
+          document.getElementById('consent-btn').addEventListener('click', async () => {
+            const formData = new FormData();
+            formData.append('file', croppedBlob || selectedFile);
+            formData.append('max_prob', maxProb);
+        
+            try {
+              await fetch('/consent', {
+                method: 'POST',
+                body: formData
+              });
+        
+              alert('접수되었습니다. 협조에 감사드립니다.');
+            } catch (e) {
+              alert('접수되었습니다. 협조에 감사드립니다.');
+              console.error(e);
+            }
+          });
         } else {
           resultDiv.textContent = `Error: ${data.error}`;
         }
