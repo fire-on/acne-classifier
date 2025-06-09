@@ -74,27 +74,12 @@ def predict():
 
         # 추론 실행
         outputs = ort_session.run(None, {input_name: input_tensor})
-@app.route('/predict', methods=['POST'])
-def predict():
-    try:
-        if 'file' not in request.files:
-            return jsonify({'error': 'Import your image first.'}), 400
-
-        file = request.files['file']
-        image = Image.open(io.BytesIO(file.read())).convert('RGB')
-        tensor = preprocess(image).unsqueeze(0).to(device)
-
-        with torch.no_grad():
-            outputs = model(tensor)
-            probs = torch.sigmoid(outputs[0])
+        probs = 1 / (1 + np.exp(-outputs[0][0]))  # sigmoid
 
         class_probs = {class_names[i]: round(float(probs[i]) * 100, 2) for i in range(len(class_names))}
 
-        return jsonify({'probs': class_probs})
-    
-    except Exception as e:
-        return jsonify({'error': str(e)}), 500
-
+        # 조건 만족 시 Cloudinary 업로드
+        max_prob = max(probs)
         now = datetime.utcnow()
         deadline = datetime(2025, 7, 8)
 
@@ -125,55 +110,6 @@ def predict():
     except Exception as e:
         print("Error:", str(e))
         return jsonify({'error': f'Server error: {str(e)}'}), 500
-
-@app.route('/consent', methods=['POST'])
-def consent():
-    try:
-        if 'file' not in request.files:
-            # 여기서도 에러 리턴은 해주지만, 클라이언트는 무조건 감사 메시지 노출
-            return jsonify({'success': False, 'error': '파일이 없습니다.'}), 400
-
-        file = request.files['file']
-        image = Image.open(io.BytesIO(file.read())).convert('RGB')
-
-        now = datetime.utcnow()
-        deadline = datetime(2025, 7, 8)
-
-        if now < deadline:
-            usage = cloudinary.api.usage()
-            remaining_storage = usage['storage']['limit'] - usage['storage']['usage']
-
-            if remaining_storage >= 10 * 1024 * 1024:
-                file.seek(0)
-                img_hash = hashlib.sha256(file.read()).hexdigest()
-                file.seek(0)
-
-                width, height = image.size
-                buffer = io.BytesIO()
-
-                if width > 1024 or height > 1024:
-                    resized = image.resize((1024, 1024))
-                    resized.save(buffer, format='JPEG', quality=85)
-                else:
-                    image.save(buffer, format='JPEG', quality=85)
-
-                buffer.seek(0)
-
-                if buffer.getbuffer().nbytes <= 5 * 1024 * 1024:
-                    cloudinary.uploader.upload(
-                        buffer,
-                        public_id=img_hash,
-                        overwrite=False,
-                        unique_filename=False
-                    )
-        # 항상 성공 리턴 (결과는 클라이언트가 알 필요 없음)
-        return jsonify({'success': True})
-
-    except Exception as e:
-        # 내부 에러 로깅만, 클라이언트에는 무조건 성공 리턴
-        print(f"[consent error] {e}")
-        return jsonify({'success': True})
-
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
