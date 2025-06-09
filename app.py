@@ -29,7 +29,7 @@ class_names = ['Pimples', 'blackhead', 'conglobata', 'crystanlline', 'cystic', '
 class SwinClassifier(nn.Module):
     def __init__(self, num_classes=10):
         super(SwinClassifier, self).__init__()
-        self.model = timm.create_model('swin_tiny_patch4_window7_224', pretrained=True, num_classes=num_classes)
+        self.model = timm.create_model('swin_tiny_patch4_window7_224', pretrained=False, num_classes=num_classes)
 
     def forward(self, x):
         return self.model(x)
