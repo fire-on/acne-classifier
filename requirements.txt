@@ -2,7 +2,6 @@ flask
 onnxruntime
 torchvision
 pillow
-timm
 huggingface_hub
 cloudinary
 gunicorn
