@@ -81,39 +81,41 @@
     
       const url = URL.createObjectURL(file);
       image.src = url;
-      classifyBtn.disabled = true; // 새 이미지 선택 시 비활성화
+      classifyBtn.disabled = true; // 분류 버튼 초기화
     
       image.onload = () => {
         const isSquare = image.naturalWidth === image.naturalHeight;
-      
+    
+        // 기존 cropper 제거
         if (cropper) cropper.destroy();
-      
+        cropper = new Cropper(image, {
+          aspectRatio: 1,
+          viewMode: 1
+        });
+    
         if (isSquare) {
-          classifyBtn.disabled = false; // 바로 분류 가능
-          cropper = null;
+          // 정사각형이면 crop 없이도 분류 가능하게
+          classifyBtn.disabled = false;
         } else {
-          alert("이미지가 정사각형이 아닙니다. 반드시 Crop 버튼을 눌러 영역을 지정해주세요.");
-          cropper = new Cropper(image, {
-            aspectRatio: 1,
-            viewMode: 1
-          });
+          // 직사각형이면 반드시 crop 필요
           classifyBtn.disabled = true;
+          alert("이미지가 정사각형이 아닙니다. 반드시 Crop 버튼을 눌러 영역을 지정해주세요.");
         }
       };
     });
-
+    
     cropBtn.addEventListener('click', () => {
       if (!cropper) return alert("이미지를 먼저 업로드하세요.");
-
+    
       cropper.getCroppedCanvas().toBlob((blob) => {
         croppedBlob = blob;
-
+    
         image.src = URL.createObjectURL(croppedBlob);
-
+    
         cropper.destroy();
         cropper = null;
-
-        classifyBtn.disabled = false; // 크롭 후 활성화
+    
+        classifyBtn.disabled = false; // 크롭 완료 후 분류 버튼 활성화
       });
     });
 
