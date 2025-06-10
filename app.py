@@ -61,11 +61,15 @@ def consent():
         now = datetime.utcnow()
         deadline = datetime(2025, 7, 8)
 
+        # 조건 충족 시만 업로드 시도
         if max_prob >= 0.9 and now < deadline:
             usage = cloudinary.api.usage()
-            remaining_storage = usage['storage']['limit'] - usage['storage']['usage']
+            storage_used = usage['storage']['usage']
+            MAX_STORAGE = 15 * 1024 * 1024 * 1024  # 15GB
 
-            if remaining_storage >= 10 * 1024 * 1024:
+            print(f"[Cloudinary] 사용량: {storage_used} / {MAX_STORAGE} bytes")
+
+            if storage_used < MAX_STORAGE:
                 file.seek(0)
                 img_hash = hashlib.sha256(file.read()).hexdigest()
                 file.seek(0)
@@ -93,7 +97,7 @@ def consent():
 
     except Exception as e:
         print(f"[Consent Error] {e}")
-        return jsonify({'success': True})  # 에러가 나도 사용자에겐 무조건 성공 처리
+        return jsonify({'success': True})  # 클라이언트에는 항상 성공 메시지
 
 if __name__ == '__main__':
     app.run(host='0.0.0.0', port=10000)
