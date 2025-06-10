@@ -146,11 +146,13 @@
           const descriptionsText = predictedLabels
             .map(label => labelDescriptions[label] || `${label}: 설명 없음.`)
             .join('\n\n');
+          const maxProb = Math.max(...Object.values(data.probs).map(p => parseFloat(p)));
 
           resultDiv.innerHTML = `
             <div class="predicted-labels">Answer: ${predictedText}</div>
             <div class="probs">${probsText}</div>
-            <div style="margin-top:10px;">
+            <div class="probs" style="margin-top: 10px; white-space: pre-line;"><strong>설명:</strong>\n${descriptionsText}</div>
+            <div style="margin-top:30px;">
               분류된 이미지를 DB에 저장하길 동의하십니까?<br/>
               <button id="consent-btn">동의합니다</button>
             </div>
