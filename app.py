@@ -1,6 +1,5 @@
 from flask import Flask, request, jsonify, render_template
 from PIL import Image
-import torchvision.transforms as transforms
 import numpy as np
 import io
 import os
@@ -23,34 +22,6 @@ cloudinary.config(
 # 클래스 라벨
 class_names = ['Pimples', 'blackhead', 'conglobata', 'crystanlline', 'cystic',
                'folliculitis', 'keloid', 'milium', 'papular', 'purulent']
-
-# ONNX 모델 다운로드 및 로딩
-try:
-    model_path = hf_hub_download(
-        repo_id="whii/Swin-Transformer-Pretrained_multilabel-acne",
-        filename="model.onnx",
-        token=os.environ["HF_TOKEN"],
-        local_files_only=True
-    )
-except EntryNotFoundError:
-    print("Model not cached. Downloading...")
-    model_path = hf_hub_download(
-        repo_id="whii/Swin-Transformer-Pretrained_multilabel-acne",
-        filename="model.onnx",
-        token=os.environ["HF_TOKEN"],
-        local_files_only=False
-    )
-
-# ONNX 세션 생성
-ort_session = ort.InferenceSession(model_path)
-
-# 전처리
-preprocess = transforms.Compose([
-    transforms.Resize((224, 224)),
-    transforms.ToTensor(),
-    transforms.Normalize(mean=[0.485, 0.456, 0.406],
-                         std=[0.229, 0.224, 0.225])
-])
 
 @app.route('/')
 def index():
