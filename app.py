@@ -88,7 +88,7 @@ def consent():
                 if buffer.getbuffer().nbytes <= 5 * 1024 * 1024:
                     cloudinary.uploader.upload(
                         buffer,
-                        public_id=img_hash,
+                        public_id=f"acne-collected/{img_hash}",
                         overwrite=False,
                         unique_filename=False
                     )
