@@ -1,10 +1,7 @@
 from flask import Flask, request, jsonify, render_template
-from huggingface_hub import hf_hub_download
-from huggingface_hub.utils import EntryNotFoundError
 from PIL import Image
 import torchvision.transforms as transforms
 import numpy as np
-import onnxruntime as ort
 import io
 import os
 import hashlib
@@ -12,6 +9,7 @@ import cloudinary
 import cloudinary.uploader
 import cloudinary.api
 from datetime import datetime
+import requests
 
 app = Flask(__name__)
 
@@ -65,25 +63,18 @@ def predict():
             return jsonify({'error': 'Import your image first.'}), 400
 
         file = request.files['file']
-        image = Image.open(io.BytesIO(file.read())).convert('RGB')
-        tensor = preprocess(image).unsqueeze(0)  # shape: (1, 3, 224, 224)
+        files = {'file': (file.filename, file.read(), file.mimetype)}
 
-        # ONNX는 numpy array 입력 필요
-        input_tensor = tensor.numpy()
-        input_name = ort_session.get_inputs()[0].name
+        # Spaces API
+        response = requests.post("https://whii-spaces-predict-api.hf.space/predict", files=files)
 
-        # 추론 실행
-        outputs = ort_session.run(None, {input_name: input_tensor})
-        probs = 1 / (1 + np.exp(-outputs[0][0]))  # sigmoid
+        if response.status_code != 200:
+            return jsonify({'error': 'Model server error'}), 500
 
-        class_probs = {class_names[i]: round(float(probs[i]) * 100, 2) for i in range(len(class_names))}
-
-        # 조건 만족 시 Cloudinary 업로드
-        max_prob = max(probs).item()
-        return jsonify({'probs': class_probs}, 'max_prob': round(max_prob, 4))
+        result = response.json()
+        return jsonify(result)
 
     except Exception as e:
-        print("Error:", str(e))
         return jsonify({'error': f'Server error: {str(e)}'}), 500
 
 @app.route('/consent', methods=['POST'])
