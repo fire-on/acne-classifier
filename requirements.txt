@@ -1,5 +1,4 @@
 flask
-torchvision
 pillow
 cloudinary
 gunicorn
